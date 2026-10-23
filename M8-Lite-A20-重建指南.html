@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M8 Lite（全志 A20）游戏棒系统重建完全指南</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f5f6f8; color: #24292f; line-height: 1.75;
+    margin: 0; padding: 40px 20px;
+  }
+  .page { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid #e4e7eb;
+         border-radius: 12px; padding: 48px 56px; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+  h1 { font-size: 26px; border-bottom: 3px solid #d83a2a; padding-bottom: 14px; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin-top: 44px; padding: 8px 14px; background: #f0f3f7;
+       border-left: 5px solid #2f6fdb; border-radius: 4px; }
+  h3 { font-size: 16px; margin-top: 26px; color: #1a3d6e; }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 26px; }
+  li { margin: 6px 0; }
+  code { background: #eef1f4; border: 1px solid #dfe3e8; border-radius: 4px;
+         padding: 1px 6px; font-size: 13px; font-family: Consolas, "Courier New", monospace; }
+  .tldr { background: #fff8e6; border: 1px solid #f0d98c; border-radius: 8px; padding: 16px 22px; margin: 18px 0; }
+  .warn { background: #fdeeee; border: 1px solid #f3b8b8; border-left: 5px solid #d83a2a;
+          border-radius: 6px; padding: 12px 18px; margin: 14px 0; }
+  .tip  { background: #eaf4ea; border: 1px solid #b5d8b5; border-left: 5px solid #3d8b3d;
+          border-radius: 6px; padding: 12px 18px; margin: 14px 0; }
+  .info { background: #eaf1fb; border: 1px solid #b9cff0; border-left: 5px solid #2f6fdb;
+          border-radius: 6px; padding: 12px 18px; margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { border: 1px solid #d7dce2; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f0f3f7; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  a { color: #2f6fdb; word-break: break-all; }
+  .step { background: #f7f9fb; border: 1px solid #e2e6ea; border-radius: 8px; padding: 14px 20px; margin: 12px 0; }
+  .step b.n { display: inline-block; background: #2f6fdb; color: #fff; border-radius: 50%;
+             width: 24px; height: 24px; text-align: center; line-height: 24px; margin-right: 8px; font-size: 14px; }
+  .tag { display: inline-block; background: #eceff3; border: 1px solid #d3d9e0; border-radius: 4px;
+         padding: 0 8px; font-size: 12px; color: #4a5568; margin-left: 6px; }
+  .small { font-size: 13px; color: #5b6470; }
+  hr { border: none; border-top: 1px solid #e4e7eb; margin: 36px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>M8 Lite（全志 A20）游戏棒系统重建完全指南</h1>
+<p class="small">适用设备：M8 Lite / Game Stick 4K Lite / M8 游戏棒（全志 Allwinner A20 方案，配 2.4G 无线 HID 手柄）&nbsp;·&nbsp;整理日期：2026-10-23</p>
+
+<div class="tldr">
+<b>先说结论：</b>
+<ol style="margin:8px 0 0;">
+<li>这类游戏棒<b>没有内部系统存储，整个系统（引导程序 + 系统 + 游戏库）都烧在 TF 卡上</b>。所以"SD 卡镜像损坏" = 无法启动，这是设计使然，不是卡"坏"了那么简单。</li>
+<li>重建的本质 = <b>给 TF 卡烧入一张"完整系统镜像"</b>（整卡原始写入，不是拷贝文件）。</li>
+<li>最大难点：市面上的"M8"其实有<b>多种主板方案</b>（RK3032 / 海思 Hi3798 / 晶晨 aml8726 / <b>全志 A20</b>……），<b>镜像互不通用</b>，必须找到与你板子版本一致的镜像。</li>
+<li>A20 方案的公开镜像目前很少见，如果实在找不到，可以走<b>方案 B：自制 Linux 游戏系统</b>（见第九节）。</li>
+</ol>
+</div>
+
+<h2>一、先鉴定你的板子版本（最关键的一步）</h2>
+<p>"M8"只是个外壳商品名，内部主板至少有 4 种方案。刷错方案的镜像一定开不了机。请按以下方法确认你的机器：</p>
+<div class="step"><b class="n">1</b><b>能开机的话</b>：进入系统的设置 / 关于 / 版本信息，拍下版本号。常见格式如 <code>SEGAM-M8-8001100 V8.0</code>、<code>M8 20240926 release v6.0</code>、<code>M8-V7.3 V1.0.0 2024-09-26</code>。A20 绿板的丝印版本形如 <code>M8-A20-V1.0-072423</code>。</div>
+<div class="step"><b class="n">2</b><b>拆开外壳看 PCB</b>：主板丝印 + 主芯片丝印（A20 方案主芯片上印 <code>Allwinner A20</code>，绿色 PCB）。论坛找镜像时帖子里通常都要对丝印。</div>
+<div class="step"><b class="n">3</b><b>看购买记录 / 包装 / 原装卡</b>：原装 TF 卡根目录有时有版本说明文件。</div>
+
+<h2>二、理解系统结构（为什么卡插电脑上"读不了"）</h2>
+<ul>
+<li>整机即"U 盘大小"的 HDMI 棒，<b>TF 卡就是它的硬盘</b>：引导程序、系统、游戏库全部在卡上。</li>
+<li>卡的引导程序位于"分区表"应该在的位置，所以插上电脑经常提示<b>"需要格式化"</b>或显示 0 字节 / 异常容量——<b>这是设计如此，此时千万不要点格式化</b>。</li>
+<li>因此烧录系统必须用<b>整卡镜像写入工具</b>（Win32DiskImager / BalenaEtcher / USB Image Tool / DiskGenius 分区还原），不能靠复制粘贴。</li>
+<li>冷知识：用<b>数据线</b>（注意盒内附带线很多是"仅充电"线）把棒子连电脑，会挂载出一个约 1GB 的分区用于导游戏。</li>
+</ul>
+
+<h2>三、准备工作清单</h2>
+<ul>
+<li><b>一张全新的高质量 TF 卡</b>（闪迪 / 三星 / 金士顿，Class 10 以上）。扩容卡是这个圈子第一大失败原因——先用 <b>H2testw</b> 测一下真实容量。</li>
+<li>容量：<b>与原装卡相同最稳</b>（镜像是按原卡容量制作的）。用更大容量也可以，烧录后用 DiskGenius 把游戏分区扩展到全卡（见第七节）。</li>
+<li>一个质量好的 USB 读卡器（烧录失败 often 是读卡器的锅）。</li>
+<li>Windows 电脑一台。</li>
+<li>工具软件：<b>Win32DiskImager</b> 或 <b>BalenaEtcher</b>（整卡烧录）、<b>DiskGenius</b>（分区备份/还原/扩容）、<b>H2testw</b>（测卡）、SD Card Formatter（格式化）。</li>
+<li>如果原卡还能被读取，<b>先整卡备份</b>：Win32DiskImager → 选盘符 → 点 <b>Read</b> → 保存为 backup.img。万一镜像还能修，这是后悔药。</li>
+</ul>
+
+<h2>四、获取系统镜像（核心难点，按推荐顺序试）</h2>
+
+<h3>渠道 1：stick-ow.pro（OpenWorld 论坛，资源最全）<span class="tag">需注册</span></h3>
+<ul>
+<li>地址：<a href="https://stick-ow.pro/forum/">https://stick-ow.pro/forum/</a>（密码提示：stick-ow.pro）</li>
+<li>下载规则：注册账号 → <b>上传头像</b> → 在帖子下方点"赞"（Нравится）→ 部分内容需审核通过后才能看到链接。</li>
+<li>论坛只接受<b>俄语或英语</b>发帖。按你的版本号搜索帖子（站内搜版本丝印，如 <code>A20</code>、<code>M8-V7.3</code>）。</li>
+<li>板块结构：原厂固件 / 自制固件 / 刷机与SD卡 / 各版本讨论区等。</li>
+</ul>
+
+<h3>渠道 2：archive.org（公开直连，无需注册）</h3>
+<p>已知的 M8 家族镜像条目（<b>注意方案，别下错</b>）：</p>
+<table>
+<tr><th>条目</th><th>主板方案</th><th>大小</th><th>MD5</th></tr>
+<tr><td><a href="https://archive.org/details/M8_V1.0.0_April29_2024-1501-M6_20240222-backup">M8 V1.0.0 Apr 29 2024（红板 M6）</a></td><td>RK3032</td><td>25.5 GB</td><td><code>8680b4c51902a801dcd1042b7ea52bab</code></td></tr>
+<tr><td><a href="https://archive.org/details/m8pro-20230822-v1_5-m8-20230420-release-v2_0">M8Pro 20230822 v1.5 / M8 20230420 V2.0</a></td><td>晶晨 aml8726MX</td><td>31 GB</td><td><code>b6934e6e74e18499df8d8b99a2d006d4</code></td></tr>
+<tr><td><a href="https://archive.org/details/gamestick-m8-segam-system-image-64gb-xdi">M8 SEGAM v4.0（XDI 格式）</a></td><td>海思 V8</td><td>50.7 GB</td><td><code>256c35d0f525e25f0f0e1099c5c58efb</code></td></tr>
+<tr><td><a href="https://archive.org/details/A8_20240923Rev1.0_M8_20240926_v6.0-gamestick-backup">A8 Rev1.0 / M8 v6.0</a></td><td>疑似全志（待确认）</td><td>7.4 GB</td><td>—</td></tr>
+<tr><td><a href="https://archive.org/details/m8-m8pro-gamestick-systemfiles">M8/M8Pro 系统文件（DATA04/05 + roms）</a></td><td>RK3032 类</td><td>34.9 GB</td><td><code>d43862e5809c6aff95a07bf0ef4cedcf</code></td></tr>
+<tr><td><a href="https://archive.org/details/m8-20230830-release-v2_0-mpi-gamestick">M8 20230830 release v2.0（.mpi 格式）</a></td><td>未确认</td><td>30.8 GB</td><td>—</td></tr>
+</table>
+<p class="small">下载大文件后务必用 7-Zip 等工具校验 MD5（Windows 命令：<code>certutil -hashfile 文件名 MD5</code>），与发布页核对一致再烧。</p>
+
+<h3>渠道 3：闲鱼 / 淘宝卖家</h3>
+<p>闲鱼有卖家专卖"M8/M15 游戏棒镜像资源，各种芯片方案的镜像都有（A8、H133、Hi3798、ALLWINNER、8726、RK3228、RK3036、RK3032、RK3128、Hi3716 等主控方案）"，通常几块钱一份。搜索关键词：<code>M8 游戏棒 镜像</code>、<code>游戏棒 固件 A20</code>。注意辨别，优先问清是否含 Allwinner A20 方案。</p>
+
+<h3>渠道 4：问原购买卖家 / Telegram 群</h3>
+<p>设备从哪买的就问哪家要原厂镜像；另有两个 Telegram 备份群：<code>t.me/+pTV13pM6byYxZTE0</code>、<code>t.me/+9GSYr50aaOdiMGVh</code>。</p>
+
+<div class="warn">
+<b>关于 A20 方案的现实：</b>全志 A20 版 M8（绿色 PCB，丝印如 <code>M8-A20-V1.0-072423</code>）是较稀有的批次，公开镜像目前极少——2026 年 9 月还有玩家在 archive.org 发帖求这块绿板的镜像（<a href="https://archive.org/post/2446265">原帖</a>）。如果各渠道都找不到，直接走第九节"方案 B：自制 Linux 游戏系统"，别用其他方案的镜像硬刷（RK3032 / 海思 / 晶晨的镜像刷进 A20 机器 100% 起不来）。
+</div>
+
+<h2>五、烧录操作（三种方法，按镜像格式选）</h2>
+
+<h3>方法 A：整卡镜像（.img / .iso / .xdi）→ Win32DiskImager 或 BalenaEtcher</h3>
+<div class="step"><b class="n">1</b>插入新 TF 卡（通过读卡器），打开 Win32DiskImager，<b>以管理员身份运行</b>。</div>
+<div class="step"><b class="n">2</b>Device 栏选中 SD 卡——<b>务必核对容量，选错盘等于毁掉其他磁盘</b>。</div>
+<div class="step"><b class="n">3</b>选择镜像文件 → 点 <b>Write</b> → 确认。等进度到 100% 并提示完成。</div>
+<div class="step"><b class="n">4</b>安全弹出，插回游戏棒，上电。首次开机可能等 1~3 分钟。</div>
+
+<h3>方法 B：分区镜像（.pmfx / .pmf）→ DiskGenius 分区还原</h3>
+<p>RK3032 的 EmuELEC 类自制系统常用这种方式：DiskGenius 左侧选中新卡 → 右键"从镜像文件还原分区" → 选 <code>.pmfx</code> 文件 → 等待完成。A20 方案的原厂镜像一般是整卡 .img，用方法 A 即可。</p>
+
+<h3>方法 C：全志卡量产（.img 卡刷包）→ PhoenixCard</h3>
+<p>如果你拿到的是全志传统卡刷包（内含 boot0/uboot/boot/system/recovery 分区）：用 <b>PhoenixCard</b> 工具，TF 卡格式化为 FAT32，"烧写模式"选<b>卡量产</b>，烧录后插设备上电，设备自动把系统写入内部存储，<b>完成后必须拔卡再重启</b>。仅当你的 A20 机器是"系统在内部 NAND、卡只放游戏"的结构时才用这条路；若整机系统就在卡上（你描述的情况），请用方法 A。</p>
+
+<div class="warn"><b>烧录铁律：</b>
+<ul style="margin:6px 0 0;">
+<li>烧录前二次确认盘符容量；电脑提示"格式化"时<b>一律拒绝</b>。</li>
+<li>烧录中途绝不拔卡/断电；写完后先安全弹出。</li>
+<li>刷之前先做第六节的手柄配置备份。</li>
+</ul>
+</div>
+
+<h2>六、手柄配置备份与恢复（最容易踩的坑）</h2>
+<p>已知在 RK3032 方案的 M8 上，<b>无线手柄的配置信息存放在 TF 卡的 boot 分区里</b>。直接刷整卡镜像会把它冲掉，结果系统起来了但手柄没反应。A20 方案逻辑类似，建议同样处理：</p>
+<div class="step"><b class="n">1</b><b>刷之前</b>：DiskGenius 选中原卡 → 找到第 2 个分区（通常名为 <code>boot</code>）→ 右键"备份分区到镜像文件" → 保存为 <code>boot.pmf</code>，妥善保管。</div>
+<div class="step"><b class="n">2</b><b>刷之后</b>：DiskGenius 选中新卡 → 右键 boot 分区 →"从镜像文件还原分区" → 选刚备份的 <code>boot.pmf</code> → 完成。</div>
+<div class="step"><b class="n">3</b>如果原卡已损坏无法备份：大部分 2.4G 手柄插上接收器即自动配对；不行就按住手柄上的配对键（多在电源键旁小孔或组合键）重新对码。</div>
+
+<h2>七、首次启动、验证与加游戏</h2>
+<ul>
+<li>插卡 → 上电 → 等待。进系统后先到版本信息核对与你烧入的镜像版本一致。</li>
+<li>测手柄：进任意游戏，按键有无反应。</li>
+<li><b>加游戏</b>：把 ROM 放到 <code>CARD:/_data/download/&lt;平台目录&gt;</code>，目录名如 <code>nes</code>、<code>snes</code>、<code>gb</code>、<code>gbc</code>、<code>gba</code>、<code>md</code>、<code>32x</code>、<code>arcade</code>、<code>psx</code>。然后进 <b>User 菜单按 R2</b> 选 Yes 刷新，新游戏即出现在列表。</li>
+<li><b>扩展游戏分区</b>（用比原卡大的新卡时）：DiskGenius 找到卡上最大的 exFAT 分区（卷标通常 <code>GameStick</code>）→ 右键"调整分区大小"扩展到全部剩余空间。<b>注意</b>：有些分区工具会破坏镜像里的特殊引导信息导致无法启动，优先用 DiskGenius 或 Minitool Partition Wizard；如果扩容后开不了机，就改用同容量新卡重烧。</li>
+</ul>
+
+<h2>八、排错速查表</h2>
+<table>
+<tr><th>现象</th><th>最可能原因</th><th>处理</th></tr>
+<tr><td>刷完黑屏 / 无画面 / 卡 logo</td><td>镜像版本与板子不匹配；SD 卡或读卡器质量问题</td><td>核对版本丝印；换卡换读卡器重烧</td></tr>
+<tr><td>系统正常但手柄无反应</td><td>boot 分区（手柄配置）被覆盖；手柄未配对</td><td>还原 boot.pmf；重新配对手柄</td></tr>
+<tr><td>插电脑提示"需要格式化"</td><td>设计如此（引导程序占分区表位置）</td><td><b>别格式化</b>，直接进行烧录</td></tr>
+<tr><td>游戏加了不显示</td><td>目录放错；游戏库未刷新</td><td>放到 <code>_data/download/&lt;平台&gt;</code>；User 菜单按 R2 刷新</td></tr>
+<tr><td>新大卡烧完容量"丢失"</td><td>分区表未扩展</td><td>DiskGenius 扩展 GameStick 分区</td></tr>
+<tr><td>烧录写到一半失败/报 I/O 错误</td><td>扩容卡、坏块卡、读卡器接触不良</td><td>H2testw 测卡；换卡换读卡器换 USB 口</td></tr>
+</table>
+
+<h2>九、方案 B：自制 Linux 游戏系统 <span class="tag">已完成</span></h2>
+<p>原厂 A20 镜像在公开渠道确实找不到（已多渠道核实）。方案 B 已从设想落地为<b>可直接烧录的成品镜像</b>，全部构建与校验均在本机完成：</p>
+<div class="tldr">
+<b>成品镜像：</b><code>D:\Projects\COM++\m8-build\build\m8-lite-a20.img</code>（8GB 稀疏镜像）<br>
+<b>校验状态：</b>MBR / SPL / FAT32 / ext2 / 符号链接 / 权限 / 60+ 项读回比对全部通过<br>
+<b>烧录工具：</b>Rufus 或 BalenaEtcher（Windows 直接烧，无需 WSL / 无需 Linux）
+</div>
+
+<h3>镜像里有什么</h3>
+<table>
+<tr><th>位置</th><th>内容</th><th>说明</th></tr>
+<tr><td>0 ~ 8KB</td><td>MBR 分区表</td><td>3 个主分区</td></tr>
+<tr><td>8KB 起</td><td>U-Boot 2021.01（SPL + U-Boot，A20 机型）</td><td>全志 BootROM 约定位置，distro boot 自动找 boot.scr</td></tr>
+<tr><td>分区 1<br>BOOT 256MB</td><td>FAT32：<code>boot.scr</code>、<code>zImage</code>、<code>board.dtb</code>、<code>uInitrd</code>、<code>uEnv.txt</code></td><td>Linux 6.1 LTS 多平台内核 + 打过补丁的 A20 设备树</td></tr>
+<tr><td>分区 2<br>ROOT 1GB</td><td>ext2：Debian 12 (bookworm) armhf 根文件系统</td><td>busybox init 直接进 RetroArch；41 个模拟器核心；41+ 手柄自动配置</td></tr>
+<tr><td>分区 3<br>GAMES ~6.7GB</td><td>FAT32：<code>README.txt</code>、<code>roms/</code>（35 个机种目录）、<code>saves/</code>、<code>states/</code></td><td>Windows 电脑可直接读写，ROM 丢进来就能玩</td></tr>
+</table>
+<ul>
+<li><b>内核</b>：Debian linux-image-armmp 6.1.176（多平台 ARMv7），AUTO_ZRELADDR 已开，512MB / 1GB 内存板子都能自适应。</li>
+<li><b>显示</b>：sun4i-drm KMS + fbdev 仿真 → HDMI 输出；RetroArch 用 SDL2 fbdev + RGUI 菜单（无需 GPU 加速、无需 X11）。</li>
+<li><b>手柄</b>：2.4G 接收器即 USB HID，内核对号入座；附带 libretro 官方 78 个通用手柄配置自动匹配。</li>
+<li><b>文件系统</b>：BOOT/GAMES 为 FAT32（Windows 兼容），ROOT 为 ext2（由内核 ext4 驱动以 ext2 模式挂载）。</li>
+<li><b>模拟器</b>：41 个 libretro  nightly 核心（FC/SFC/GB/GBA/MD/街机 FBNeo+MAME/PS1/PCE/雅达利全家桶/Amiga/C64/ZX/Doom/Quest 等），glibc 兼容性已验证。</li>
+</ul>
+
+<h3>烧录步骤（Windows）</h3>
+<div class="step"><b class="n">1</b>插好 TF 读卡器，确认盘符（比如 <code>H:</code>），<b>容量建议 ≥ 8GB</b>。</div>
+<div class="step"><b class="n">2</b>打开 <b>Rufus</b>（rufus.ie）或 <b>BalenaEtcher</b>（etcher.balenena.io）。</div>
+<div class="step"><b class="n">3</b>选择上述 <code>m8-lite-a20.img</code>，选择 TF 卡盘符，开始烧录。<br>
+<span class="small">Rufus 若弹出"检测到 DD 镜像/ISO 镜像模式"提示，选 <b>DD 模式</b>；Etcher 无需选择。</span></div>
+<div class="step"><b class="n">4</b>烧录完成后<b>安全弹出</b>，插回游戏棒，上电。</div>
+<div class="warn"><b>烧录会整卡覆盖。</b>如果原卡里还有想保留的东西（尤其 boot 分区里的手柄配对文件），先用 DiskGenius 整卡备份 <code>boot.pmf</code> 再烧——详见第六节。</div>
+
+<h3>首次启动预期</h3>
+<ol>
+<li>上电后 HDMI <b>约 1~3 秒</b>出现内核启动日志（白色小字，滚动很快属正常）。</li>
+<li>日志滚完后自动进入 <b>RetroArch 菜单</b>（蓝色 RGUI 界面），首次约 20~40 秒。</li>
+<li>菜单里用<b>方向键</b>移动，<b>A 确认</b>，<b>B 返回</b>。</li>
+<li>选择 <code>Load Content</code> → 浏览到 <code>/mnt/games/roms/</code> 对应机种目录 → 选 ROM → 自动加载对应核心。</li>
+<li><b>游戏内呼出菜单</b>：按住 <b>Select</b> + 按 <b>X</b>（Quick Menu）。</li>
+<li><b>退出游戏</b>：<b>Select + Start</b>，或 Quick Menu 里选 <code>Close Content</code>（退回主菜单）。</li>
+<li><b>QUIT &amp; POWER OFF（完全退出并关机）</b>：主菜单底部选 <code>Quit RetroArch</code> → 屏幕提示后 <b>15 秒内按任意键</b>可返回 RetroArch；<b>15 秒无操作自动关机</b>（会先卸载文件系统，安全）。在 shell 里也可以随时输入 <code>poweroff</code> 关机。</li>
+<li><b>即时存储（Save States）</b>：游戏内 <b>Select + R2</b> 存档，<b>Select + L2</b> 读档；<b>Select + R / L</b> 切换存档槽（0~9，共 10 个位置）。也可以 <b>Select + X</b> 呼出 Quick Menu，用菜单里的 <code>Save State</code> / <code>Load State</code> / <code>State Slot</code> 操作。存档写在 TF 卡 GAMES 分区 <code>states/</code> 目录，41 个核心全部支持。</li>
+</ol>
+<div class="tip"><b>加游戏：</b>拔卡插电脑，GAMES 分区（FAT32）直接可见，把 ROM 丢进 <code>roms/</code> 对应目录，安全弹出后插回游戏棒即可。分区里的 <code>README.txt</code> 有完整说明。</div>
+
+<h3>可选：在 WSL 里深度验证镜像</h3>
+<p>本机构建时已做只读校验。若你想在 WSL 里再跑一轮独立验证（文件系统 fsck + QEMU 冒烟启动测试），见随附脚本 <code>m8-build\wsl-test.sh</code>：</p>
+<div class="step"><b class="n">1</b>WSL 里执行：<code>sudo apt update &amp;&amp; sudo apt install -y qemu-system-arm dosfstools e2fsprogs util-linux</code></div>
+<div class="step"><b class="n">2</b>执行：<code>bash /mnt/d/Projects/COM++/m8-build/wsl-test.sh</code></div>
+<div class="step"><b class="n">3</b>看三项结果：fsck 无 error；目录内容齐全；QEMU 日志出现 <code>[initramfs] root found</code> 和 <code>[M8] starting RetroArch...</code>（virt 机型无帧缓冲，RetroArch 会报错退出并重启，属预期）。</div>
+<p class="small">注意：QEMU 没有 A20 机型，冒烟测试只能验证"内核 → initramfs → 根文件系统 → 启动脚本"这条链；SPL/U-Boot/HDMI/手柄等 A20 专属部分只能在真机上验证。</p>
+
+<h3>已知限制与风险（如实说明）</h3>
+<ul>
+<li><b>U-Boot 机型</b>：用的是 A20-OLinuXino-Lime2 的 SPL/U-Boot（A20 DRAM 初始化通用）。万一你的板子内存类型/容量特殊导致 U-Boot 起不来，可换 deb 里其他 A20 变体重刷 8KB 处的引导（我可以帮你做）。</li>
+<li><b>设备树</b>：基于 sun7i-a20-mk808c（电视盒子，与游戏棒形态最接近）打了补丁（USB 强制 host 模式、启用板载模拟声卡）。若 HDMI 没画面/手柄没反应，多半是 DTB 外设差异，换一块板子的 DTB 往往能解决。</li>
+<li><b>HDMI 音频</b>：主线 Linux 内核不支持 A20 的 HDMI 音频输出（补丁系列自 2020 年停更）。声音走<b>板载模拟音频口</b>（3.5mm，如有）或外接 USB 声卡。</li>
+<li><b>WiFi</b>：若板载 WiFi 模组，需要对应固件（firmware-realtek 已含常见型号；其他厂商需另找固件）。</li>
+<li><b>性能</b>：A20 双核 A7 + Mali-400MP2，FC/SFC/GB/GBA/MD/街机流畅；PS1 基本可玩；N64/PSP 不现实。</li>
+<li><b>手柄配对文件</b>：自制系统不继承原厂 boot.pmf，若原手柄是私有 2.4G 协议（非标准 USB HID），可能需要保留原 boot 分区（见第六节备份/恢复流程）。</li>
+</ul>
+
+<h2>十、下一步</h2>
+<ol>
+<li><b>先备份原卡</b>（可选但推荐）：把原 TF 卡插电脑，用 DiskGenius 整卡备份，重点保留 boot 分区的手柄配对文件（第六节有流程）。</li>
+<li><b>烧录</b>：按第九节用 Rufus/Etcher 把 <code>m8-lite-a20.img</code> 写入 ≥8GB 的 TF 卡。</li>
+<li><b>上电观察</b>：HDMI 是否出现内核日志 → 是否进 RetroArch 菜单。把看到的现象（或拍照）告诉我。</li>
+<li><b>加游戏测试</b>：丢一个 FC ROM 进 <code>GAMES\roms\nes\</code>，回游戏棒 Load Content 试玩。</li>
+<li><b>有问题反馈</b>：卡在哪个阶段、HDMI 显示什么、手柄反应如何——按第八节排错表先自查，再把细节给我，我出针对性补丁（换 DTB / 调 boot.scr / 换 U-Boot 变体都可以快速重新构建）。</li>
+</ol>
+<div class="info"><b>重新构建很容易：</b>整套构建管线在 <code>D:\Projects\COM++\m8-build\</code>（Python 脚本 + 已下载的组件）。要调整任何部分——换板型 DTB、加减模拟器核心、改分区大小——告诉我，几分钟就能出新镜像。</div>
+<hr>
+<p class="small">主要信息来源：stick-ow.pro 论坛、Internet Archive（M8 系列备份条目）、ZNDS 智能电视网（RK3032 刷机教程）、什么值得买/今日头条等国内评测。镜像资源版权归各发布者所有，游戏 ROM 请使用合法获得的拷贝。</p>
+
+</div>
+</body>
+</html>

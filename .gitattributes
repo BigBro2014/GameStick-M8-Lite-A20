@@ -1,0 +1,2 @@
+# Shell 脚本必须在 WSL/Linux 下运行，强制 LF（Windows 检出时默认会给 CRLF）
+*.sh text eol=lf

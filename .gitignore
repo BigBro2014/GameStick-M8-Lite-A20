@@ -1,0 +1,30 @@
+# ============================================================
+# COM++ / M8 Lite A20 镜像构建 —— 忽略可再生产物，只跟踪源码
+# ============================================================
+
+# ---- 构建产物（重新生成：python m8-build/scripts/build_all.py）----
+m8-build/build/
+m8-build/rootfs/
+m8-build/downloads/
+m8-build/debs/
+m8-build/tools/
+
+# ---- 常见中间文件 ----
+*.img
+*.deb
+*.tar.gz
+*.tar.xz
+*.xz
+*.zip
+__pycache__/
+*.py[cod]
+*.tmp
+
+# ---- WorkBuddy 项目数据 ----
+.workbuddy/
+
+# ---- 系统/编辑器垃圾 ----
+Thumbs.db
+desktop.ini
+.DS_Store
+*~
