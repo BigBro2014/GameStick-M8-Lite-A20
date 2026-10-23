@@ -6,7 +6,7 @@
 3. ext2 ROOT：独立读取器遍历目录树，核对关键文件（内容哈希/符号链接/权限）
 4. FAT32 GAMES：列目录
 """
-import os, sys, struct, hashlib
+import os, sys, struct, hashlib, gzip, re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fat32 import Fat32
@@ -119,6 +119,74 @@ class Ext2Reader:
                     yield item
 
 
+def check_uinitrd(data):
+    """独立校验 uInitrd 的 cpio newc 结构 + init 引用的模块是否真的存在。
+
+    读回校验此前只比对字节，覆盖不到"启动链产物内部的格式正确性"——
+    cpio 填充不合规、insmod 缺 .ko 后缀两个 P0 都藏在这里。
+    返回失败原因列表（空列表 = 通过）。
+    """
+    fails = []
+    if len(data) < 64 or data[:4] != b"\x27\x05\x19\x56":
+        return ["uImage 魔数不对"]
+    size = struct.unpack_from(">I", data, 12)[0]
+    if len(data) < 64 + size:
+        return ["uImage 声明长度越界"]
+    if data[31] != 1:
+        return ["非 gzip 压缩 (comp=%d)" % data[31]]
+    raw = gzip.decompress(data[64:64 + size])
+
+    # 标准 newc 解析（内核 gen_init_cpio / buffer-format.rst）：
+    # 数据起点 = 110B 头 + 名字(含 NUL) 之后对齐到 4，只需补 0~3 字节
+    pos, names, init_txt, err = 0, [], None, None
+    while True:
+        if raw[pos:pos + 6] != b"070701":
+            err = "第 %d 条目前 cpio 魔数不对（条目填充/对齐错误）" % len(names)
+            break
+        f = [int(raw[pos + 6 + i * 8: pos + 6 + (i + 1) * 8], 16) for i in range(13)]
+        nsize, fsize = f[11], f[6]
+        name = raw[pos + 110: pos + 110 + nsize - 1].decode("utf-8", "replace")
+        dstart = (pos + 110 + nsize + 3) & ~3
+        if name == "init":
+            init_txt = raw[dstart:dstart + fsize].decode("utf-8", "replace")
+        names.append(name)
+        pos = dstart + ((fsize + 3) & ~3)
+        if name == "TRAILER!!!":
+            break
+        if pos > len(raw):
+            err = "条目 %s 之后越界" % name
+            break
+    if err:
+        fails.append(err)
+    elif pos != len(raw):
+        fails.append("cpio 长度不精确（解析到 %d / 实际 %d）" % (pos, len(raw)))
+    if err is None:
+        if "init" not in names:
+            fails.append("initramfs 内缺少 init")
+        if "bin/busybox" not in names:
+            fails.append("initramfs 内缺少 bin/busybox")
+        komods = [n for n in names
+                  if n.startswith("lib/modules/kernel/") and n.endswith(".ko")]
+        if len(komods) < 5:
+            fails.append("启动模块数量异常 (%d)" % len(komods))
+        if init_txt:
+            # 真实加载清单在 "for m in a.ko b.ko ...; do" 这一行
+            # （insmod 行里是 shell 变量 $m，取不到具体名字）
+            mlist = re.search(r"for m in ([^;]+); do", init_txt)
+            if mlist:
+                refs = mlist.group(1).split()
+            else:
+                refs = [r for r in re.findall(r"insmod /lib/modules/kernel/(\S+)", init_txt)
+                        if "$" not in r and "<" not in r]     # 排除变量与提示行
+            missing = [r for r in refs if "lib/modules/kernel/" + r not in names]
+            if not refs:
+                fails.append("init 里没有解析到模块加载清单")
+            if missing:
+                fails.append("init 引用了 initramfs 中不存在的模块: %s"
+                             % ", ".join(missing))
+    return fails
+
+
 def main():
     img = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, "build", "m8-lite-a20.img")
     rootfs_src = sys.argv[2] if len(sys.argv) > 2 else os.environ.get(
@@ -150,15 +218,28 @@ def main():
     p1 = [p for p in parts if p[0] == 1][0]
     boot = Fat32(img, p1[2] * SECTOR, p1[3] * SECTOR, label="BOOT").mount()
     listing = {k: (kind, size) for kind, k, size in boot.list_all()}
+    uinitrd = None
     for name in ("boot.scr", "zImage", "board.dtb", "uInitrd", "uEnv.txt"):
         entries = [v for k, v in listing.items() if k.upper().endswith("/" + name.upper())]
         ok(bool(entries), "BOOT:/%s 存在" % name)
         if entries:
             data = boot.read_file([k for k in listing if k.upper().endswith("/" + name.upper())][0])
+            if name == "uInitrd":
+                uinitrd = data
             src = os.path.join(boot_src, name)
             if os.path.exists(src):
                 want = open(src, "rb").read()
                 ok(sha(data) == sha(want), "  %s 内容一致 (%d bytes)" % (name, len(data)))
+
+    # ---- 2.5 uInitrd 启动链结构 ----
+    print("\n[2.5] uInitrd 启动链结构（cpio newc 合规性 + init 模块引用）")
+    if uinitrd:
+        uf = check_uinitrd(uinitrd)
+        ok(not uf, "uInitrd %s" % ("结构校验通过" if not uf else "结构异常: " + "; ".join(uf)))
+        if not uf:
+            print("       cpio 按标准对齐解析干净（填充不合规会从中间条目起整体错位）")
+    else:
+        ok(False, "BOOT:/uInitrd 未取到")
 
     # ---- 3. ext2 ROOT ----
     print("\n[3] ext2 ROOT 分区")
