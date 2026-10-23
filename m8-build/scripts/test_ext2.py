@@ -4,7 +4,8 @@ import os, sys, struct, hashlib, random, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ext2 import Ext2, EXT2_ROOT_INO, LOST_FOUND_INO
 
-IMG = "D:/Projects/COM++/m8-build/build/ext2_test.img"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+IMG = os.path.join(BASE, "build", "ext2_test.img")
 os.makedirs(os.path.dirname(IMG), exist_ok=True)
 SIZE = 16 * 1024 * 1024
 BS = 1024

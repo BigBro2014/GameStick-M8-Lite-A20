@@ -197,7 +197,10 @@ class Fat32:
 
     def _flush_fsinfo(self):
         fsi = bytearray(self._r(self.bps, 512))
-        struct.pack_into("<I", fsi, 488, self.clusters - 3)
+        # free_count 按 FAT 实际空表项统计（数据簇 2..clusters+1）——
+        # 不能用格式化时的 clusters-3 常量，否则分配文件后 df/stat 显示不准
+        free = self.fat[2:self.clusters + 2].count(0)
+        struct.pack_into("<I", fsi, 488, free)
         struct.pack_into("<I", fsi, 492, self.next_free)
         self._w(self.bps, bytes(fsi))
         self._w(7 * self.bps, bytes(fsi))

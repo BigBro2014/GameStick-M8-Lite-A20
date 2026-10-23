@@ -4,16 +4,16 @@
 #
 # 用法（在 WSL Ubuntu 中）：
 #   sudo apt update && sudo apt install -y qemu-system-arm dosfstools e2fsprogs util-linux
-#   bash /mnt/d/Projects/COM++/m8-build/wsl-test.sh [镜像路径]
+#   bash /mnt/d/Projects/M8-lite/m8-build/wsl-test.sh [镜像路径]
 #
-# 默认镜像：/mnt/d/Projects/COM++/m8-build/build/m8-lite-a20.img
+# 默认镜像：/mnt/d/Projects/M8-lite/m8-build/build/m8-lite-a20.img
 # 脚本只读镜像，不会修改任何文件。QEMU 部分需要 sudo 以外的普通权限即可。
 # ============================================================================
 set -u
 
-IMG="${1:-/mnt/d/Projects/COM++/m8-build/build/m8-lite-a20.img}"
+IMG="${1:-/mnt/d/Projects/M8-lite/m8-build/build/m8-lite-a20.img}"
 BOOTDIR="$(dirname "$IMG")/../boot"
-BOOTDIR="$(cd "$BOOTDIR" 2>/dev/null && pwd || echo /mnt/d/Projects/COM++/m8-build/build/boot)"
+BOOTDIR="$(cd "$BOOTDIR" 2>/dev/null && pwd || echo /mnt/d/Projects/M8-lite/m8-build/build/boot)"
 
 if [ ! -f "$IMG" ]; then
     echo "!! 镜像不存在: $IMG"

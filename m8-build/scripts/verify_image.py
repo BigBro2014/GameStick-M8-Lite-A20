@@ -11,6 +11,8 @@ import os, sys, struct, hashlib
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fat32 import Fat32
 
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 SECTOR = 512
 FAIL = []
 
@@ -118,10 +120,10 @@ class Ext2Reader:
 
 
 def main():
-    img = sys.argv[1] if len(sys.argv) > 1 else "D:/Projects/COM++/m8-build/build/m8-test-2g.img"
+    img = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, "build", "m8-lite-a20.img")
     rootfs_src = sys.argv[2] if len(sys.argv) > 2 else os.environ.get(
-        "M8_ROOTFS_DIR", "D:/Projects/COM++/m8-build/build/rootfs")
-    boot_src = "D:/Projects/COM++/m8-build/build/boot"
+        "M8_ROOTFS_DIR", os.path.join(BASE, "build", "rootfs2"))
+    boot_src = os.path.join(BASE, "build", "boot")
     print("验证镜像: %s" % img)
 
     with open(img, "rb") as f:
@@ -222,9 +224,9 @@ def main():
         e = path2ino.get(vpath)
         ok(e is not None and e[1] in (3, 4), "%s 设备节点存在" % vpath)
 
-    # 内核模块与核心
-    ok(any(p.startswith("/lib/modules/6.1.0-50-armmp/kernel/drivers/mmc/host/sunxi-mmc.ko") for p in path2ino),
-       "sunxi-mmc.ko 在镜像中")
+    # 内核模块与核心（KVER 自适应：不硬编码内核版本号，Debian 索引更新后仍有效）
+    mmc = [p for p in path2ino if p.endswith("/kernel/drivers/mmc/host/sunxi-mmc.ko")]
+    ok(bool(mmc), "sunxi-mmc.ko 在镜像中 (%s)" % (mmc[0] if mmc else "未找到"))
     ncores = sum(1 for p in path2ino if p.startswith("/usr/lib/libretro/cores/") and p.endswith(".so"))
     ok(ncores >= 40, "libretro 核心 %d 个" % ncores)
     ninfo = sum(1 for p in path2ino if p.startswith("/usr/share/libretro/info/") and p.endswith(".info"))

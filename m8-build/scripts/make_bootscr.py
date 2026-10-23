@@ -5,7 +5,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mkimage import make_script
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(BASE, "build/boot/boot.scr")
 
 BOOT_SCRIPT = r"""# M8 Lite (Allwinner A20) U-Boot boot script

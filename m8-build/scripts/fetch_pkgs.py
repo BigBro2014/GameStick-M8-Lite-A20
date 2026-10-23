@@ -4,7 +4,7 @@ import os, sys, urllib.parse
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
 from debtools import parse_packages, resolve, http_get
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DL = os.path.join(BASE, "downloads", "debs")
 os.makedirs(DL, exist_ok=True)
 

@@ -9,7 +9,7 @@ import os, sys, glob, re, shutil, tarfile, io, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from debtools import extract_deb, http_get
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEBS = os.path.join(BASE, "downloads/debs")
 # 输出目录：默认 build/rootfs，可用环境变量 M8_ROOTFS_DIR 覆盖（避免删除旧树）
 ROOTFS = os.environ.get("M8_ROOTFS_DIR", os.path.join(BASE, "build/rootfs"))
@@ -162,10 +162,13 @@ def copy_modules(name2path, depends, aliases, ordered):
             else:
                 f.write("%s:\n" % rel)
     # modules.alias
+    # 目标必须是 depmod 风格的模块名（文件名去 .ko 后缀、- 转 _），不能带目录
+    # 路径——kmod 按模块名检索索引，写成路径会解析失败
     with open(os.path.join(dst, "modules.alias"), "w") as f:
         for rel in sorted(aliases):
             for a in aliases[rel]:
-                f.write("alias %s %s\n" % (a, rel[:-3].replace("-", "_")))
+                modname = os.path.basename(rel)[:-3].replace("-", "_")
+                f.write("alias %s %s\n" % (a, modname))
     # modules.symbols（从 depends 反推不够，仅写空表避免 kmod 报警）
     open(os.path.join(dst, "modules.symbols"), "w").close()
     # modules.order / builtin（内核 deb 自带）
@@ -287,8 +290,9 @@ while read -r m; do
   /bin/busybox insmod /lib/modules/KVER/$m 2>/dev/null || echo "  [warn] $m"
 done < /etc/modules.load
 
-# 热插拔：注册 mdev 为内核 hotplug 助手——未预载的模块（如特定 hid-xxx）按
-# MODALIAS 自动经 /sbin/modprobe 加载。设备节点本身由 devtmpfs 提供。
+# 设备节点由 devtmpfs 自动提供。注意：busybox mdev 作为 hotplug 助手时并不会
+# 按 MODALIAS 调用 modprobe，未预载的模块（如特定 hid-xxx）不会自动加载——
+# 需要时请在 /etc/modules.load 补一行，或启动后手动 insmod。
 echo /bin/busybox mdev > /proc/sys/kernel/hotplug 2>/dev/null
 
 # USB 大容量存储：开机扫描并只读挂载到 /mnt/usb（拷 ROM 用；随后插入需手动 mount）

@@ -4,7 +4,7 @@ import os, sys, zipfile, urllib.request, urllib.error, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from debtools import http_get
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORES_DIR = os.path.join(BASE, "downloads", "cores")
 INFO_DIR = os.path.join(BASE, "downloads", "coreinfo")
 os.makedirs(CORES_DIR, exist_ok=True)
@@ -56,8 +56,9 @@ def main():
         if not os.path.exists(info_path):
             try:
                 http_get(INFO % c, info_path, retries=2, timeout=60)
-            except Exception:
-                pass
+            except Exception as e:
+                # 不静默：缺 .info 的核心不会出现在 RetroArch 菜单里，必须可见
+                sys.stderr.write("  [warn] info failed: %s (%s)\n" % (c, e))
         return c
     print("downloading %d cores..." % len(CORES))
     with ThreadPoolExecutor(max_workers=3) as ex:
@@ -68,6 +69,11 @@ def main():
         list(ex.map(dl_info, CORES))
     infos = os.listdir(INFO_DIR)
     print("info files: %d/%d" % (len(infos), len(CORES)))
+    missing_info = [c for c in CORES
+                    if not os.path.exists(os.path.join(INFO_DIR, c + "_libretro.info"))]
+    if missing_info:
+        print("WARN: %d 个核心缺 .info（不会出现在 RetroArch 菜单）: %s"
+              % (len(missing_info), ", ".join(missing_info)))
     total = sum(os.path.getsize(os.path.join(CORES_DIR, f)) for f in os.listdir(CORES_DIR))
     print("total cores size: %.1f MB" % (total / 1e6))
 

@@ -4,7 +4,8 @@ import os, sys, hashlib, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fat32 import Fat32
 
-IMG = "D:/Projects/COM++/m8-build/build/fat32_test.img"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+IMG = os.path.join(BASE, "build", "fat32_test.img")
 os.makedirs(os.path.dirname(IMG), exist_ok=True)
 SIZE = 128 * 1024 * 1024
 OFFSET = 1 * 1024 * 1024  # 模拟分区在镜像中的偏移

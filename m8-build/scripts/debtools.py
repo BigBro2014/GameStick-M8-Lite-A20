@@ -11,15 +11,36 @@ def http_get(url, dest=None, retries=5, timeout=120, min_size=0):
         dest = tempfile.mktemp()
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(url, headers=dict(UA, Range="bytes=%d-" % (os.path.getsize(dest) if os.path.exists(dest) else 0)))
-            with urllib.request.urlopen(req, timeout=timeout) as r, open(dest, "ab") as f:
-                while True:
-                    chunk = r.read(1 << 20)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+            have = os.path.getsize(dest) if os.path.exists(dest) else 0
+            req = urllib.request.Request(
+                url, headers=dict(UA, Range="bytes=%d-" % have) if have else dict(UA))
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                if have and r.status != 206:
+                    # 服务器忽略 Range：会返回完整内容，追加到半成品后会损坏文件，
+                    # 必须改为覆盖重下（从头开始）
+                    sys.stderr.write("  [warn] %s: resume got %d (expect 206) -> full re-download\n"
+                                     % (url, r.status))
+                    open_mode = "wb"
+                else:
+                    open_mode = "ab"
+                with open(dest, open_mode) as f:
+                    while True:
+                        chunk = r.read(1 << 20)
+                        if not chunk:
+                            break
+                        f.write(chunk)
             if os.path.getsize(dest) >= min_size:
                 return dest
+        except urllib.error.HTTPError as e:
+            if e.code == 416 and os.path.exists(dest):
+                # Range 越界：半成品已不小于服务端文件，丢弃后从头下
+                sys.stderr.write("  [warn] %s: 416 range not satisfiable, discarding partial\n" % url)
+                try:
+                    os.remove(dest)
+                except OSError:
+                    pass
+            sys.stderr.write("  [retry %d] %s: %s\n" % (attempt + 1, url, e))
+            time.sleep(2 + attempt * 2)
         except Exception as e:
             sys.stderr.write("  [retry %d] %s: %s\n" % (attempt + 1, url, e))
             time.sleep(2 + attempt * 2)

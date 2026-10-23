@@ -1,7 +1,7 @@
 <h2>九、方案 B：自制 Linux 游戏系统 <span class="tag">已完成</span></h2>
 <p>原厂 A20 镜像在公开渠道确实找不到（已多渠道核实）。方案 B 已从设想落地为<b>可直接烧录的成品镜像</b>，全部构建与校验均在本机完成：</p>
 <div class="tldr">
-<b>成品镜像：</b><code>D:\Projects\COM++\m8-build\build\m8-lite-a20.img</code>（8GB 稀疏镜像）<br>
+<b>成品镜像：</b><code>D:\Projects\M8-lite\m8-build\build\m8-lite-a20.img</code>（8GB 稀疏镜像）<br>
 <b>校验状态：</b>MBR / SPL / FAT32 / ext2 / 符号链接 / 权限 / 60+ 项读回比对全部通过<br>
 <b>烧录工具：</b>Rufus 或 BalenaEtcher（Windows 直接烧，无需 WSL / 无需 Linux）
 </div>
@@ -45,7 +45,7 @@
 <h3>可选：在 WSL 里深度验证镜像</h3>
 <p>本机构建时已做只读校验。若你想在 WSL 里再跑一轮独立验证（文件系统 fsck + QEMU 冒烟启动测试），见随附脚本 <code>m8-build\wsl-test.sh</code>：</p>
 <div class="step"><b class="n">1</b>WSL 里执行：<code>sudo apt update &amp;&amp; sudo apt install -y qemu-system-arm dosfstools e2fsprogs util-linux</code></div>
-<div class="step"><b class="n">2</b>执行：<code>bash /mnt/d/Projects/COM++/m8-build/wsl-test.sh</code></div>
+<div class="step"><b class="n">2</b>执行：<code>bash /mnt/d/Projects/M8-lite/m8-build/wsl-test.sh</code></div>
 <div class="step"><b class="n">3</b>看三项结果：fsck 无 error；目录内容齐全；QEMU 日志出现 <code>[initramfs] root found</code> 和 <code>[M8] starting RetroArch...</code>（virt 机型无帧缓冲，RetroArch 会报错退出并重启，属预期）。</div>
 <p class="small">注意：QEMU 没有 A20 机型，冒烟测试只能验证"内核 → initramfs → 根文件系统 → 启动脚本"这条链；SPL/U-Boot/HDMI/手柄等 A20 专属部分只能在真机上验证。</p>
 
@@ -67,4 +67,4 @@
 <li><b>加游戏测试</b>：丢一个 FC ROM 进 <code>GAMES\roms\nes\</code>，回游戏棒 Load Content 试玩。</li>
 <li><b>有问题反馈</b>：卡在哪个阶段、HDMI 显示什么、手柄反应如何——按第八节排错表先自查，再把细节给我，我出针对性补丁（换 DTB / 调 boot.scr / 换 U-Boot 变体都可以快速重新构建）。</li>
 </ol>
-<div class="info"><b>重新构建很容易：</b>整套构建管线在 <code>D:\Projects\COM++\m8-build\</code>（Python 脚本 + 已下载的组件）。要调整任何部分——换板型 DTB、加减模拟器核心、改分区大小——告诉我，几分钟就能出新镜像。</div>
+<div class="info"><b>重新构建很容易：</b>整套构建管线在 <code>D:\Projects\M8-lite\m8-build\</code>（Python 脚本 + 已下载的组件）。要调整任何部分——换板型 DTB、加减模拟器核心、改分区大小——告诉我，几分钟就能出新镜像。</div>

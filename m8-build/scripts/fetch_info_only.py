@@ -4,7 +4,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from debtools import http_get
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INFO_DIR = os.path.join(BASE, "downloads", "coreinfo")
 os.makedirs(INFO_DIR, exist_ok=True)
 

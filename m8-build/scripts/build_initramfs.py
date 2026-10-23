@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from debtools import extract_deb
 from mkimage import make_ramdisk, IH_COMP_GZIP
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _detect_kver():
@@ -19,7 +19,6 @@ def _detect_kver():
 KVER = _detect_kver()
 MODDIR = os.path.join(BASE, "build/kernel/lib/modules", KVER)
 OUT_DIR = os.path.join(BASE, "build/boot")
-WORK = os.path.join(BASE, "build/initramfs-root")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # 启动关键模块（含依赖闭包）
@@ -78,7 +77,11 @@ def cpio_newc(entries):
         for v in (ino, mode, 0, 0, nlink, 0, filesize, 0, 0, rdevmaj, rdevmin, len(nb), 0):
             fields.append(b"%08X" % v)
         h = b"".join(fields)
-        pad = (4 - len(h) % 4) % 4 + (4 - len(nb) % 4) % 4
+        # newc 标准（内核 gen_init_cpio / buffer-format.rst）：数据起点为
+        # "110B 头 + 名字（含 NUL）" 后对齐到 4 —— 只需补 0~3 字节。
+        # 110 % 4 == 2，绝不能把"头部对齐量"和"名字对齐量"相加（namesize%4∈{1,2}
+        # 时会多写 4 字节，内核解包器从该条目起整体错位）。
+        pad = (4 - (len(h) + len(nb)) % 4) % 4
         out.write(h + nb + b"\x00" * pad)
 
     for name, mode, is_link, target, data in entries:
@@ -148,8 +151,10 @@ echo "[initramfs] root mount FAILED"
 echo "[initramfs] try: insmod /lib/modules/kernel/<mod>.ko ; mount -t ext4 /dev/mmcblk0p2 /sysroot"
 exec /bin/busybox sh
 """
-    init_sh = init_sh.replace("MODULE_LIST", " ".join(n for n, _ in mods))
-    init_sh = init_sh.replace("KVER_PATH", "kernel")  # 模块扁平放在 /lib/modules/kernel/
+    # MODULE_LIST 用实际文件名（含 .ko）：模块条目按 basename 扁平存放在
+    # /lib/modules/kernel/ 下，insmod 按路径直接打开文件，名字必须与条目一致
+    # （裸模块名缺 .ko 后缀会全部 ENOENT）
+    init_sh = init_sh.replace("MODULE_LIST", " ".join(os.path.basename(p) for _, p in mods))
 
     # 4. cpio 条目
     entries = []

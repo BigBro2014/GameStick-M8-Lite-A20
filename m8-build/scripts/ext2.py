@@ -206,6 +206,11 @@ class Ext2:
             self.inodes[ino]["size"] = len(tb)
             self.inodes[ino]["i_blocks"] = 0
         else:
+            if len(tb) > self.bs:
+                # 慢速符号链接也只占一个块；目标超长会溢出写到后续块，直接报错
+                raise ValueError(
+                    "symlink target too long for slow link (%d > %d): %r"
+                    % (len(tb), self.bs, target))
             b = self._alloc_block()
             self._w(b * self.bs, tb.ljust(self.bs, b"\x00"))
             self.inodes[ino]["blocks"] = [b]

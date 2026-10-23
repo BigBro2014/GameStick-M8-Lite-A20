@@ -76,7 +76,7 @@ m8-build/
 ## 4. 一键构建（推荐）
 
 ```bash
-cd /d/Projects/COM++/m8-build
+cd /d/Projects/M8-lite/m8-build
 
 python scripts/build_all.py                    # 完整构建，默认 8G
 python scripts/build_all.py --size 4G          # 4GB 小卡
@@ -93,7 +93,7 @@ python scripts/build_all.py --clean            # 全新 rootfs 目录重新解�
 
 ## 5. 分步构建（手工）
 
-> 以下命令均在 `D:/Projects/COM++/m8-build` 目录执行。
+> 以下命令均在 `D:/Projects/M8-lite/m8-build` 目录执行。
 > 「耗时」为代理较慢时的参考值，断点续传可反复重跑。
 
 ### 步骤 1 · Debian 索引（可选手动）
@@ -219,7 +219,7 @@ cp build/kernel/boot/vmlinuz-* build/boot/zImage
 ### 步骤 10 · rootfs 树（核心步骤）
 
 ```bash
-export M8_ROOTFS_DIR=D:/Projects/COM++/m8-build/build/rootfs2   # bash; PowerShell 用 $env:
+export M8_ROOTFS_DIR=D:/Projects/M8-lite/m8-build/build/rootfs2   # bash; PowerShell 用 $env:
 
 python scripts/build_rootfs.py            # 全新目录：解包 282 个 deb
 python scripts/build_rootfs.py --finish   # 已解包过：只重做模块元数据/核心/配置
@@ -259,7 +259,7 @@ python scripts/build_rootfs.py --finish   # 已解包过：只重做模块元数
 python scripts/assemble_image.py \
   --size 8G \
   --out build/m8-lite-a20.img \
-  --rootfs D:/Projects/COM++/m8-build/build/rootfs2
+  --rootfs D:/Projects/M8-lite/m8-build/build/rootfs2
 ```
 
 四步：① 稀疏镜像 + MBR（p1 0x0C FAT32 / p2 0x83 ext2 / p3 0x0C FAT32）
@@ -276,7 +276,7 @@ python scripts/assemble_image.py \
 ```bash
 python scripts/verify_image.py \
   build/m8-lite-a20.img \
-  D:/Projects/COM++/m8-build/build/rootfs2
+  D:/Projects/M8-lite/m8-build/build/rootfs2
 ```
 
 60+ 项独立校验：MBR/分区表/SPL 魔数；BOOT 五个文件逐一 SHA256 比对；
@@ -301,7 +301,7 @@ python scripts/test_ext2.py
 ```bash
 # WSL (Ubuntu) 中：
 sudo apt update && sudo apt install -y qemu-system-arm dosfstools e2fsprogs util-linux
-bash /mnt/d/Projects/COM++/m8-build/wsl-test.sh
+bash /mnt/d/Projects/M8-lite/m8-build/wsl-test.sh
 ```
 
 依次：① `fsck` 只读校验三个分区（验证手写 FAT32/ext2 符合标准）；

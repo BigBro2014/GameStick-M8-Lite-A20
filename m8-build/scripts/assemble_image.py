@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fat32 import Fat32
 from ext2 import Ext2, EXT2_ROOT_INO
 
-BASE = "D:/Projects/COM++/m8-build"
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD = os.path.join(BASE, "build")
 UBOOT = os.path.join(BUILD, "uboot/usr/lib/u-boot/A20-OLinuXino-Lime2/u-boot-sunxi-with-spl.bin")
 BOOT_SRC = os.path.join(BUILD, "boot")
@@ -221,7 +221,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--size", default="8G", help="镜像总大小，如 8G / 4G / 16384M")
     ap.add_argument("--out", default=os.path.join(BUILD, "m8-lite-a20.img"))
-    ap.add_argument("--rootfs", default=os.environ.get("M8_ROOTFS_DIR", os.path.join(BUILD, "rootfs")))
+    ap.add_argument("--rootfs", default=os.environ.get("M8_ROOTFS_DIR", os.path.join(BUILD, "rootfs2")))
     ap.add_argument("--boot-mb", type=int, default=0, help="BOOT 分区 MB（0=自动）")
     ap.add_argument("--root-mb", type=int, default=0, help="ROOT 分区 MB（0=自动）")
     args = ap.parse_args()
