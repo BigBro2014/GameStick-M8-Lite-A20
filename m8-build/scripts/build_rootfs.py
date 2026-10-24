@@ -58,9 +58,12 @@ RUNTIME_MODULES = [
     "drm_display_helper", "sun4i-tcon", "sun4i-frontend",
     # 文件系统（GAMES 分区 FAT32/exFAT）
     "vfat", "fat", "exfat",
-    # 声卡（模拟音频口；HDMI 音频主线内核不支持）
+    # 声卡（板载模拟音频口；HDMI 音频主线内核不支持，见 rcS 注释）
     "snd-soc-core", "snd-soc-simple-card", "snd-pcm", "snd",
     "sun4i-codec", "sun4i-i2s",
+    # USB 声卡：HDMI 音频缺失时的主要替代方案。必须预载——
+    # busybox mdev 不会按 MODALIAS 调 modprobe，热插拔不会自动加载
+    "snd-usb-audio",
     # 根分区（ext2 格式由 ext4 驱动挂载）
     "ext4", "jbd2", "mbcache",
 ]
