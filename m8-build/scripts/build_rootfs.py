@@ -58,7 +58,8 @@ RUNTIME_MODULES = [
     "drm_display_helper", "sun4i-tcon", "sun4i-frontend",
     # 文件系统（GAMES 分区 FAT32/exFAT）
     "vfat", "fat", "exfat",
-    # 声卡（板载模拟音频口；HDMI 音频主线内核不支持，见 rcS 注释）
+    # 声卡（板载模拟音频口；HDMI 音频由打过补丁的 sun4i-drm-hdmi.ko 提供，
+    # 默认声卡路由见 etc/asound.conf 的自动生成逻辑）
     "snd-soc-core", "snd-soc-simple-card", "snd-pcm", "snd",
     "sun4i-codec", "sun4i-i2s",
     # USB 声卡：HDMI 音频缺失时的主要替代方案。必须预载——
@@ -333,6 +334,12 @@ echo "[M8] starting RetroArch..."
 export SDL_VIDEODRIVER=fbdev
 export SDL_AUDIODRIVER=alsa
 export SDL_NOMOUSE=1
+# 声卡清单：HDMI 音频声卡（sun4i-hdmi）在 DRM 编码器使能后注册，
+# 接上带音频的显示器才会出现；没出现说明显示器不支持音频或线材问题
+if [ -r /proc/asound/cards ]; then
+  echo "[M8] sound cards:"
+  /bin/busybox sed 's/^/  /' /proc/asound/cards
+fi
 fails=0
 while true; do
   /usr/bin/retroarch --config /root/.config/retroarch/retroarch.cfg
@@ -395,6 +402,41 @@ done
         p = os.path.join(ROOTFS, name)
         if not os.path.exists(p):
             open(p, "w").write(content)
+
+    # ---- ALSA 默认声卡：HDMI 音频（打过补丁的 sun4i-drm-hdmi.ko）----
+    # 打了 HDMI 音频补丁的 sun4i-drm-hdmi.ko 依赖 snd-soc-core；未打补丁的
+    # 原版不依赖。检测到补丁版时把默认声卡指向 HDMI：
+    #   - 声卡名 sun4i-hdmi，在 DRM encoder 使能（显示器接入、出画面）时注册
+    #   - 板载模拟声卡（simple-audio-card "M8-Lite"）在无 3.5mm 输出的机器上不可用
+    # 换回原版模块（install_hdmi_audio.py --revert）时自动删除本文件。
+    asound = os.path.join(ROOTFS, "etc/asound.conf")
+    hdmi_ko = os.path.join(MODSRC, "kernel/drivers/gpu/drm/sun4i/sun4i-drm-hdmi.ko")
+    hdmi_audio = False
+    if os.path.exists(hdmi_ko):
+        try:
+            with open(hdmi_ko, "rb") as f:
+                hdmi_audio = b"snd-soc-core" in f.read()
+        except OSError:
+            pass
+    if hdmi_audio:
+        with open(asound, "w") as f:
+            f.write(
+                "# M8 Lite A20：默认声卡走 HDMI（sun4i-hdmi）\n"
+                "# 该声卡在显示器接入、DRM 编码器使能后注册；未接显示器时\n"
+                "# ALSA 打开会失败。需要改用其他声卡时删掉本文件或改 card 名。\n"
+                "pcm.!default {\n"
+                "\ttype hw\n"
+                "\tcard sun4i-hdmi\n"
+                "}\n"
+                "ctl.!default {\n"
+                "\ttype hw\n"
+                "\tcard sun4i-hdmi\n"
+                "}\n"
+            )
+        print("asound.conf: 默认声卡 -> sun4i-hdmi（检测到 HDMI 音频模块）")
+    elif os.path.exists(asound):
+        os.remove(asound)
+        print("asound.conf: 已移除（未检测到 HDMI 音频模块）")
 
     # ---- 目录骨架 ----
     for d in ("var/run", "var/log", "var/lock", "var/tmp", "run", "tmp",

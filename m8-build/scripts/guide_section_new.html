@@ -49,11 +49,18 @@
 <div class="step"><b class="n">3</b>看三项结果：fsck 无 error；目录内容齐全；QEMU 日志出现 <code>[initramfs] root found</code> 和 <code>[M8] starting RetroArch...</code>（virt 机型无帧缓冲，RetroArch 会报错退出并重启，属预期）。</div>
 <p class="small">注意：QEMU 没有 A20 机型，冒烟测试只能验证"内核 → initramfs → 根文件系统 → 启动脚本"这条链；SPL/U-Boot/HDMI/手柄等 A20 专属部分只能在真机上验证。</p>
 
+<h3>可选增强：HDMI 音频（音画同口输出）</h3>
+<p>主线 Linux 的 A20 HDMI 驱动只有视频。Olimex 的 Stefan Mavrodiev 2020 年写过 HDMI 音频驱动（Armbian 一直以外挂补丁维护），本项目已把它移植到本镜像使用的 Debian 6.1 内核，<b>硬件无需任何改动</b>（设备树早就声明了 HDMI 音频 DMA 通道），只重编一个内核模块。</p>
+<div class="step"><b class="n">1</b>WSL 里编译模块（首次自动下载内核源码 deb 并解压约 1.1GB、装构建依赖，约 15~25 分钟；之后重跑约 1~2 分钟）：<code>bash /mnt/d/Projects/M8-lite/m8-build/hdmi-audio/build_hdmi_audio.sh</code></div>
+<div class="step"><b class="n">2</b>Windows 里安装并重新打包镜像（自动备份原模块）：<code>python D://Projects//M8-lite//m8-build//scripts//install_hdmi_audio.py</code></div>
+<div class="step"><b class="n">3</b>烧录上新镜像，接上<b>带音频的显示器/电视</b>，启动日志里 <code>[M8] sound cards:</code> 应出现 <code>sun4i-hdmi</code>，RetroArch 声音即从 HDMI 输出。</div>
+<p class="small">要点：声卡只在<b>接上显示器、出画面之后</b>才注册（驱动挂在显示编码器上）；显示器不支持音频时不会有这个声卡，可改用 USB 声卡（已预载）。格式为 S16_LE、32~192kHz、1~8 声道。不想要了可随时 <code>install_hdmi_audio.py --revert</code> 恢复原样。细节见 <code>m8-build\hdmi-audio\README.md</code>。</p>
+
 <h3>已知限制与风险（如实说明）</h3>
 <ul>
 <li><b>U-Boot 机型</b>：用的是 A20-OLinuXino-Lime2 的 SPL/U-Boot（A20 DRAM 初始化通用）。万一你的板子内存类型/容量特殊导致 U-Boot 起不来，可换 deb 里其他 A20 变体重刷 8KB 处的引导（我可以帮你做）。</li>
 <li><b>设备树</b>：基于 sun7i-a20-mk808c（电视盒子，与游戏棒形态最接近）打了补丁（USB 强制 host 模式、启用板载模拟声卡）。若 HDMI 没画面/手柄没反应，多半是 DTB 外设差异，换一块板子的 DTB 往往能解决。</li>
-<li><b>HDMI 音频</b>：主线 Linux 内核不支持 A20 的 HDMI 音频输出（补丁系列自 2020 年停更）。声音走<b>板载模拟音频口</b>（3.5mm，如有）或外接 USB 声卡。</li>
+<li><b>HDMI 音频</b>：主线内核原本不支持 A20 的 HDMI 音频，本项目已移植 Olimex/Armbian 维护的驱动（<b>默认未装</b>，属可选增强，见下文）。不装时声音走<b>板载模拟音频口</b>（3.5mm，如有）或外接 USB 声卡。</li>
 <li><b>WiFi</b>：若板载 WiFi 模组，需要对应固件（firmware-realtek 已含常见型号；其他厂商需另找固件）。</li>
 <li><b>性能</b>：A20 双核 A7 + Mali-400MP2，FC/SFC/GB/GBA/MD/街机流畅；PS1 基本可玩；N64/PSP 不现实。</li>
 <li><b>手柄配对文件</b>：自制系统不继承原厂 boot.pmf，若原手柄是私有 2.4G 协议（非标准 USB HID），可能需要保留原 boot 分区（见第六节备份/恢复流程）。</li>

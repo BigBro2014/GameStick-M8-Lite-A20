@@ -323,7 +323,33 @@ Rufus 或 BalenaEtcher，选 `build/m8-lite-a20.img`，TF 卡 ≥ 8GB，**DD 模
 
 ---
 
-## 9. 定制指南
+## 9. HDMI 音频（可选增强）
+
+主线 6.1 的 `sun4i-drm-hdmi` 只有视频。本项目移植了 Olimex/Armbian 维护的
+HDMI 音频驱动（Stefan Mavrodiev 2020，未合入主线），把音频代码编进
+`sun4i-drm-hdmi.ko` 本身。硬件无需改动：DT 的 `hdmi@1c16000` 早已声明
+`audio-tx` 专用 DMA 通道；内核配置依赖（`SND_SOC`/`SND_PCM_ELD`/
+`SND_SOC_GENERIC_DMAENGINE_PCM`/`DMA_SUN4I`）Debian 6.1.0-50-armmp 全部满足。
+详见 `hdmi-audio/README.md`。
+
+两步（**不用重编整个内核**，只重编这一个模块）：
+
+```bash
+# 1) WSL 里编译（装同版本 headers + 交叉编译器，自动校验 vermagic）
+bash /mnt/d/Projects/M8-lite/m8-build/hdmi-audio/build_hdmi_audio.sh
+
+# 2) Windows 里安装并重组装镜像（自动备份原版 .ko）
+python D:/Projects/M8-lite/m8-build/scripts/install_hdmi_audio.py
+```
+
+效果：接上带音频的显示器后注册 ALSA 声卡 `sun4i-hdmi`（S16_LE，
+32~192kHz，1~8 声道，ELD 约束）；`/etc/asound.conf` 自动把默认声卡指向它
+（板载模拟声卡在无 3.5mm 输出的机器上不可用）。回退：
+`install_hdmi_audio.py --revert`。
+
+---
+
+## 10. 定制指南
 
 | 想改什么 | 改哪里 |
 |---|---|
@@ -335,10 +361,11 @@ Rufus 或 BalenaEtcher，选 `build/m8-lite-a20.img`，TF 卡 ≥ 8GB，**DD 模
 | 加载哪些模块 | `build_rootfs.py` 的 `RUNTIME_MODULES` 列表 |
 | RetroArch 配置 | `build_rootfs.py` 的 `RETROARCH_CFG` |
 | 启动参数 | `make_bootscr.py` 的 `BOOT_SCRIPT` |
+| HDMI 音频 | 见第 9 节（`hdmi-audio/`，重编 sun4i-drm-hdmi.ko） |
 
 ---
 
-## 10. 已知坑（构建时全部踩过）
+## 11. 已知坑（构建时全部踩过）
 
 1. **WSL 被沙箱黑名单拦截** → 才有这套全 Windows 原生管线（Python 手写 FAT32/ext2）。
 2. **Windows 符号链接**：`tarfile filter="data"` 遇绝对路径 symlink 直接中止解包、
@@ -353,7 +380,7 @@ Rufus 或 BalenaEtcher，选 `build/m8-lite-a20.img`，TF 卡 ≥ 8GB，**DD 模
 
 ---
 
-## 11. 产物清单
+## 12. 产物清单
 
 | 文件 | 大小 | 说明 |
 |---|---|---|
@@ -364,3 +391,4 @@ Rufus 或 BalenaEtcher，选 `build/m8-lite-a20.img`，TF 卡 ≥ 8GB，**DD 模
 | `build/boot/uInitrd` | 1.4MB | initramfs |
 | `build/rootfs2/` | ~950MB | rootfs 树（含 41 核心 + 模块 + 配置） |
 | `build/rootfs.links` | — | 593+ 条符号链接清单 |
+| `hdmi-audio/` | — | HDMI 音频驱动移植（补丁 + out-of-tree 构建 + 安装脚本） |

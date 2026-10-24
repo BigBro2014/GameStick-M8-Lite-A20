@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0
+# M8 Lite A20 - 带 HDMI 音频支持的 sun4i-drm-hdmi 模块（out-of-tree 构建）
+# 源码取自 Debian linux 6.1.176 的 drivers/gpu/drm/sun4i/，
+# 改动见 sun4i-hdmi-audio-6.1.patch（移植自 Armbian sunxi-6.12 维护版）。
+# 用 Debian linux-headers-6.1.0-50-armmp 树构建，产物直接替换原 .ko。
+obj-m += sun4i-drm-hdmi.o
+
+sun4i-drm-hdmi-y += sun4i_hdmi_ddc_clk.o
+sun4i-drm-hdmi-y += sun4i_hdmi_enc.o
+sun4i-drm-hdmi-y += sun4i_hdmi_i2c.o
+sun4i-drm-hdmi-y += sun4i_hdmi_tmds_clk.o
+sun4i-drm-hdmi-y += sun4i_hdmi_audio.o
+
+# out-of-tree 构建时 CONFIG_DRM_SUN4I_HDMI_AUDIO 不在内核 .config 里，
+# 由编译命令行传入（见 build_hdmi_audio.sh）
+ccflags-y += -DCONFIG_DRM_SUN4I_HDMI_AUDIO=1
